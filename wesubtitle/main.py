@@ -124,16 +124,20 @@ def main():
             if similarity > args.similarity_thresh:  # the same subtitle
                 continue
             else:
-                # Record current subtitle
-                _add_subs(cur - args.subsampling)
-                detected = False
+                ocr_results = ocr.ocr(frame)
+                _detected, _, _content = detect_subtitle_area(ocr_results, h, w)
+                if not _detected or not _content or _content.strip()!=content.strip():
+                    # Record current subtitle
+                    _add_subs(cur - args.subsampling)
+                    detected = False
         else:
             # Detect subtitle area
             ocr_results = ocr.ocr(frame)
             if not ocr_results[0]:
                 continue
-            detected, box, content = detect_subtitle_area(ocr_results, h, w)
-            if detected:
+            detected, box, _content = detect_subtitle_area(ocr_results, h, w)
+            if detected and content.strip()!=_content.strip():
+                content = _content
                 start = cur
                 ref_gray_image = frame[box[1][1]:box[2][1],
                                        box[0][0]:box[1][0], :]
