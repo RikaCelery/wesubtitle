@@ -92,7 +92,7 @@ def main():
     subs = []
 
     def _add_subs(end):
-        print('New subtitle {} {} {}'.format(start / fps, end / fps, content))
+        print('New subtitle {:.2f} {:.2f} {}'.format(start / fps, end / fps, content))
         subs.append(
             srt.Subtitle(
                 index=0,
@@ -111,6 +111,7 @@ def main():
                 _add_subs(cur)
             tq.close()
             break
+        frame = frame[:,:h/2]
         cur += 1
         if cur % args.subsampling != 0:
             continue
