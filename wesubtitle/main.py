@@ -120,10 +120,8 @@ def main():
             ocr_results = ocr.ocr(frame)
             if not ocr_results[0]:
                 continue
-            detected = False
             detected, box, content = detect_subtitle_area(ocr_results, h, w)
             if detected:
-                detected = True
                 start = cur
                 ref_gray_image = frame[box[1][1]:box[2][1],
                                        box[0][0]:box[1][0], :]
