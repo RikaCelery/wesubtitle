@@ -74,7 +74,7 @@ def get_args():
 
 def main():
     args = get_args()
-    ocr = PaddleOCR(use_angle_cls=True, lang="ch")
+    ocr = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
     cap = cv2.VideoCapture(args.input_video)
     w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -100,12 +100,16 @@ def main():
                 end=datetime.timedelta(seconds=end / fps),
                 content=content.strip(),
             ))
-
+    import tqdm
+    tq = tqdm.tqdm(range(int(count)))
+    tq_iter = tq.__iter__()
     while cap.isOpened():
         ret, frame = cap.read()
+        tq_iter.__next__()
         if not ret:
             if detected:
                 _add_subs(cur)
+            tq.close()
             break
         cur += 1
         if cur % args.subsampling != 0:
@@ -126,6 +130,8 @@ def main():
         else:
             # Detect subtitle area
             ocr_results = ocr.ocr(frame)
+            if not ocr_results[0]:
+                continue
             detected, box, content = detect_subtitle_area(ocr_results, h, w)
             if detected:
                 start = cur
