@@ -23,34 +23,22 @@ def detect_subtitle_area(ocr_results, h, w):
     '''
     ocr_results = ocr_results[0]  # 0, the first image result
     # Merge horizon text areas
-    idx = 0
     candidates = []
-    while idx < len(ocr_results):
-        boxes, text = ocr_results[idx]
+    for res in ocr_results:
+        boxes, text = res[0],res[1]
         # We assume the subtitle is at bottom of the video
         if boxes[0][1] < h * 0.75:
-            idx += 1
             continue
-        idx += 1
-        con_boxes = copy.deepcopy(boxes)
-        con_text = text[0]
-        while idx < len(ocr_results):
-            n_boxes, n_text = ocr_results[idx]
-            if abs(n_boxes[0][1] - boxes[0][1]) < h * 0.01 and \
-               abs(n_boxes[3][1] - boxes[3][1]) < h * 0.01:
-                con_boxes[1] = n_boxes[1]
-                con_boxes[2] = n_boxes[2]
-                con_text = con_text + ' ' + n_text[0]
-                idx += 1
-            else:
-                break
-        candidates.append((con_boxes, con_text))
+        if text[1] < 0.80:
+            continue
+        candidates.append((boxes, text))
+
     # TODO(Binbin Zhang): Only support horion center subtitle
     if len(candidates) > 0:
-        sub_boxes, subtitle = candidates[-1]
+        sub_boxes, _ = candidates[-1]
         # offset is less than 10%
         if (sub_boxes[0][0] + sub_boxes[1][0]) / w > 0.90:
-            return True, box2int(sub_boxes), subtitle
+            return True, box2int(sub_boxes), " ".join(x[1][0] for x in candidates)
     return False, None, None
 
 
@@ -85,14 +73,14 @@ def main():
 
     cur = 0
     detected = False
-    box = None
+    box:list[list[int]] = None
     content = ''
     start = 0
     ref_gray_image = None
     subs = []
-
     def _add_subs(end):
-        print('New subtitle {} {} {}'.format(start / fps, end / fps, content))
+        print('New subtitle {:.2f} {:.2f} {}'.format(
+            start / fps, end / fps, content))
         subs.append(
             srt.Subtitle(
                 index=0,
@@ -101,17 +89,17 @@ def main():
                 content=content.strip(),
             ))
     import tqdm
-    tq = tqdm.tqdm(range(int(count)))
+    tq = tqdm.tqdm(range(int(count)), mininterval=5)
     tq_iter = tq.__iter__()
     while cap.isOpened():
         ret, frame = cap.read()
-        tq_iter.__next__()
         if not ret:
             if detected:
                 _add_subs(cur)
-            tq.close()
+            tq.refresh()
             break
         cur += 1
+        tq_iter.__next__()
         if cur % args.subsampling != 0:
             continue
         if detected:
@@ -132,13 +120,16 @@ def main():
             ocr_results = ocr.ocr(frame)
             if not ocr_results[0]:
                 continue
+            detected = False
             detected, box, content = detect_subtitle_area(ocr_results, h, w)
             if detected:
+                detected = True
                 start = cur
                 ref_gray_image = frame[box[1][1]:box[2][1],
                                        box[0][0]:box[1][0], :]
                 ref_gray_image = cv2.cvtColor(ref_gray_image,
                                               cv2.COLOR_BGR2GRAY)
+
     cap.release()
 
     # Write srt file
